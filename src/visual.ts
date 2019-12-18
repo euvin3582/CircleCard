@@ -29,25 +29,26 @@ import "core-js/stable";
 import "./../style/visual.less";
 import powerbi from "powerbi-visuals-api";
 import IVisual = powerbi.extensibility.visual.IVisual;
+import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisualHost = powerbi.extensibility.visual.IVisualHost; 
 import { VisualSettings } from "./settings";
 import DataView = powerbi.DataView;
+import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
 
 import * as d3 from "d3";
 type Selection<T extends d3.BaseType> = d3.Selection<T, any, any, any>;
 
 export class Visual implements IVisual {
-
-    // ...
     private host: IVisualHost;
     private svg: Selection<SVGElement>;
     private container: Selection<SVGElement>;
     private circle: Selection<SVGElement>;
     private textValue: Selection<SVGElement>;
     private textLabel: Selection<SVGElement>;
-    // ...
+
+    private visualSettings: VisualSettings;
 
     constructor(options: VisualConstructorOptions) {
         console.log('Visual constructor', options);
@@ -66,6 +67,11 @@ export class Visual implements IVisual {
 
     }
 
+    public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
+        const settings: VisualSettings = this.visualSettings || <VisualSettings>VisualSettings.getDefault();
+        return VisualSettings.enumerateObjectInstances(settings, options);
+    }
+
     public update(options: VisualUpdateOptions) {
         console.log('Visual update', options);
 
@@ -75,6 +81,12 @@ export class Visual implements IVisual {
         this.svg.attr("width", width);
         this.svg.attr("height", height);
         let radius: number = Math.min(width, height) / 2.2;
+        
+        this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
+
+        this.visualSettings.circle.circleThickness = Math.max(0, this.visualSettings.circle.circleThickness);
+        this.visualSettings.circle.circleThickness = Math.min(10, this.visualSettings.circle.circleThickness);
+
         this.circle
             .style("fill", "white")
             .style("fill-opacity", 0.5)
@@ -85,7 +97,7 @@ export class Visual implements IVisual {
             .attr("cy", height / 2);
         let fontSizeValue: number = Math.min(width, height) / 5;
         this.textValue
-            .text("Value")
+            .text(<string>dataView.single.value)
             .attr("x", "50%")
             .attr("y", "50%")
             .attr("dy", "0.35em")
@@ -93,7 +105,7 @@ export class Visual implements IVisual {
             .style("font-size", fontSizeValue + "px");
         let fontSizeLabel: number = fontSizeValue / 4;
         this.textLabel
-            .text("Label")
+            .text(dataView.metadata.columns[0].displayName)
             .attr("x", "50%")
             .attr("y", height / 2)
             .attr("dy", fontSizeValue / 1.2)
